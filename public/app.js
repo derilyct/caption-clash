@@ -26,6 +26,9 @@
     gameover: $('#screen-gameover'),
   };
 
+  // Leave button
+  const btnLeaveGame = $('#btn-leave-game');
+
   // Landing
   const inputUsername = $('#input-username');
   const inputRoomCode = $('#input-room-code');
@@ -76,6 +79,7 @@
   function showScreen(name) {
     Object.values(screens).forEach((s) => s.classList.remove('active'));
     screens[name].classList.add('active');
+    btnLeaveGame.style.display = name === 'landing' ? 'none' : 'block';
   }
 
   // --- Utilities ---
@@ -494,10 +498,21 @@
 
   // New game (leave current)
   btnNewGame.addEventListener('click', () => {
+    leaveGame();
+  });
+
+  // Global leave button
+  btnLeaveGame.addEventListener('click', () => {
+    if (confirm('Are you sure you want to leave the game?')) {
+      leaveGame();
+    }
+  });
+
+  function leaveGame() {
     socket.emit('leave-game');
     resetClientState();
     showScreen('landing');
-  });
+  }
 
   function resetClientState() {
     myId = null;
