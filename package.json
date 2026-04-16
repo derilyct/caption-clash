@@ -1,0 +1,18 @@
+{
+  "name": "caption-clash",
+  "version": "1.0.0",
+  "description": "A multiplayer caption game where players compete to write the funniest captions for AI-generated images",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "bad-words": "^3.0.4",
+    "openai": "^4.28.0",
+    "dotenv": "^16.4.1",
+    "uuid": "^9.0.0"
+  }
+}
