@@ -256,6 +256,121 @@ input:focus, textarea:focus {
   font-size: 0.9rem;
 }
 
+/* ===== Game Layout with Sidebar ===== */
+.game-layout {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  max-width: 1000px;
+  align-items: flex-start;
+}
+
+/* ===== Player Panel (Sidebar) ===== */
+.player-panel {
+  width: 200px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: sticky;
+  top: 20px;
+}
+.panel-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  padding: 0 8px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.panel-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+.panel-player.is-me {
+  border-color: var(--primary);
+}
+.panel-player .panel-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.panel-player .panel-info {
+  flex: 1;
+  min-width: 0;
+}
+.panel-player .panel-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.panel-player .panel-status {
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+.panel-status.status-waiting {
+  color: var(--text-muted);
+}
+.panel-status.status-done {
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* ===== Live Captions Feed ===== */
+.live-captions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.live-caption-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  animation: fadeSlideIn 0.3s ease;
+}
+.live-caption-card .lc-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.live-caption-card .lc-text {
+  flex: 1;
+  font-size: 0.95rem;
+}
+.live-caption-card .lc-author {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ===== Game Container ===== */
 .game-container {
   max-width: 700px;
@@ -856,5 +971,23 @@ input:focus, textarea:focus {
   }
   .modal {
     padding: 24px 20px;
+  }
+  .game-layout {
+    flex-direction: column;
+  }
+  .player-panel {
+    width: 100%;
+    min-width: unset;
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: static;
+    gap: 6px;
+  }
+  .panel-title {
+    width: 100%;
+  }
+  .panel-player {
+    flex: 1 1 auto;
+    min-width: 120px;
   }
 }

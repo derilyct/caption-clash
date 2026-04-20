@@ -137,6 +137,7 @@ class Game {
       image: this.currentImage,
       roundNumber: this.roundNumber,
       timeRemaining: this.timeRemaining,
+      players: this.getPlayerList(),
     };
   }
 
@@ -199,6 +200,7 @@ class Game {
       captions: captionList,
       image: this.currentImage,
       timeRemaining: this.timeRemaining,
+      players: this.getPlayerList(),
     };
   }
 
@@ -368,10 +370,13 @@ class Game {
         id: player.id,
         username: player.username,
         avatar: { color: player.avatarColor, emoji: player.avatarEmoji },
+        score: player.score,
         gamesWon: player.gamesWon,
         captionsWon: player.captionsWon,
         totalWins: player.totalWins,
         isHost: player.id === this.hostId,
+        hasSubmittedCaption: this.captions.has(player.id),
+        hasVoted: this.votes.has(player.id),
       });
     }
     return list;

@@ -89,61 +89,74 @@
 
     <!-- ===== CAPTIONING SCREEN ===== -->
     <div id="screen-captioning" class="screen">
-      <div class="game-container">
-        <div class="phase-header">
-          <span class="phase-label">Round <span id="caption-round">1</span></span>
-          <div class="timer" id="caption-timer">60</div>
-        </div>
+      <div class="game-layout">
+        <!-- Player Panel Sidebar -->
+        <div class="player-panel" id="captioning-player-panel"></div>
 
-        <div class="image-frame">
-          <img id="caption-image" src="" alt="Caption this image!" />
-        </div>
-
-        <div class="caption-input-area">
-          <div class="caption-input-wrapper">
-            <textarea
-              id="input-caption"
-              placeholder="Write your caption..."
-              maxlength="100"
-              rows="2"
-            ></textarea>
-            <span class="char-count"><span id="char-count">0</span>/100</span>
+        <div class="game-container">
+          <div class="phase-header">
+            <span class="phase-label">Round <span id="caption-round">1</span></span>
+            <div class="timer" id="caption-timer">60</div>
           </div>
-          <button id="btn-submit-caption" class="btn btn-primary">Submit Caption</button>
-        </div>
 
-        <div id="caption-status" class="status-bar">
-          <span id="caption-count">0</span>/<span id="caption-total">0</span> captions submitted
-        </div>
+          <div class="image-frame">
+            <img id="caption-image" src="" alt="Caption this image!" />
+          </div>
 
-        <div id="caption-submitted-msg" class="submitted-overlay" style="display:none">
-          <div class="submitted-check">&#10003;</div>
-          <p>Caption submitted! Waiting for others...</p>
+          <div class="caption-input-area">
+            <div class="caption-input-wrapper">
+              <textarea
+                id="input-caption"
+                placeholder="Write your caption..."
+                maxlength="100"
+                rows="2"
+              ></textarea>
+              <span class="char-count"><span id="char-count">0</span>/100</span>
+            </div>
+            <button id="btn-submit-caption" class="btn btn-primary">Submit Caption</button>
+          </div>
+
+          <!-- Live captions from other players -->
+          <div id="live-captions" class="live-captions-list"></div>
+
+          <div id="caption-status" class="status-bar">
+            <span id="caption-count">0</span>/<span id="caption-total">0</span> captions submitted
+          </div>
+
+          <div id="caption-submitted-msg" class="submitted-overlay" style="display:none">
+            <div class="submitted-check">&#10003;</div>
+            <p>Caption submitted! Waiting for others...</p>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- ===== VOTING SCREEN ===== -->
     <div id="screen-voting" class="screen">
-      <div class="game-container">
-        <div class="phase-header">
-          <span class="phase-label">Vote for the Best Caption!</span>
-          <div class="timer" id="vote-timer">120</div>
-        </div>
+      <div class="game-layout">
+        <!-- Player Panel Sidebar -->
+        <div class="player-panel" id="voting-player-panel"></div>
 
-        <div class="image-frame image-frame-small">
-          <img id="vote-image" src="" alt="The image" />
-        </div>
+        <div class="game-container">
+          <div class="phase-header">
+            <span class="phase-label">Vote for the Best Caption!</span>
+            <div class="timer" id="vote-timer">120</div>
+          </div>
 
-        <div id="vote-captions" class="vote-caption-list"></div>
+          <div class="image-frame image-frame-small">
+            <img id="vote-image" src="" alt="The image" />
+          </div>
 
-        <div id="vote-status" class="status-bar">
-          <span id="vote-count">0</span>/<span id="vote-total">0</span> votes cast
-        </div>
+          <div id="vote-captions" class="vote-caption-list"></div>
 
-        <div id="vote-submitted-msg" class="submitted-overlay" style="display:none">
-          <div class="submitted-check">&#10003;</div>
-          <p>Vote submitted! Waiting for others...</p>
+          <div id="vote-status" class="status-bar">
+            <span id="vote-count">0</span>/<span id="vote-total">0</span> votes cast
+          </div>
+
+          <div id="vote-submitted-msg" class="submitted-overlay" style="display:none">
+            <div class="submitted-check">&#10003;</div>
+            <p>Vote submitted! Waiting for others...</p>
+          </div>
         </div>
       </div>
     </div>

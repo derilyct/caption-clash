@@ -18,6 +18,7 @@
   let hasSubmittedCaption = false;
   let hasVoted = false;
   let currentCaptions = [];
+  let currentPlayers = []; // track players for panel rendering
 
   // --- DOM refs ---
   const $ = (sel) => document.querySelector(sel);
@@ -365,6 +366,60 @@
     return div.innerHTML;
   }
 
+  // --- Player Panel ---
+  function renderPlayerPanel(containerId, players, phase) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    let html = '<div class="panel-title">Players</div>';
+    players.forEach((p) => {
+      const isMe = p.id === myId;
+      let statusText = '';
+      let statusClass = 'status-waiting';
+      if (phase === 'captioning') {
+        if (p.hasSubmittedCaption) {
+          statusText = '✓ Submitted';
+          statusClass = 'status-done';
+        } else {
+          statusText = 'Writing...';
+        }
+      } else if (phase === 'voting') {
+        if (p.hasVoted) {
+          statusText = '✓ Voted';
+          statusClass = 'status-done';
+        } else {
+          statusText = 'Voting...';
+        }
+      }
+      html += `
+        <div class="panel-player ${isMe ? 'is-me' : ''}">
+          <div class="panel-avatar" style="background:${p.avatar.color}">${p.avatar.emoji}</div>
+          <div class="panel-info">
+            <div class="panel-name">${escapeHtml(p.username)}</div>
+            <div class="panel-status ${statusClass}">${statusText}</div>
+          </div>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+  }
+
+  function addLiveCaption(data) {
+    const liveCaptions = document.getElementById('live-captions');
+    if (!liveCaptions) return;
+    // Don't show own caption in the feed
+    if (data.playerId === myId) return;
+    const card = document.createElement('div');
+    card.className = 'live-caption-card';
+    card.innerHTML = `
+      <div class="lc-avatar" style="background:${data.avatar?.color || '#333'}">${data.avatar?.emoji || '?'}</div>
+      <div>
+        <div class="lc-text">"${escapeHtml(data.captionText)}"</div>
+        <div class="lc-author">${escapeHtml(data.username)}</div>
+      </div>
+    `;
+    liveCaptions.appendChild(card);
+  }
+
   // --- Event: Matchmaking ---
   btnMatchmake.addEventListener('click', () => {
     const username = inputUsername.value.trim();
@@ -459,6 +514,7 @@
   // --- Mid-game join handler ---
   function handleMidGameJoin(res) {
     const gs = res.gameState;
+    if (gs.players) currentPlayers = gs.players;
     if (gs.state === 'captioning') {
       hasSubmittedCaption = false;
       captionSubmittedMsg.style.display = 'none';
@@ -471,6 +527,9 @@
       updateTimer(captionTimer, gs.timeRemaining);
       captionCount.textContent = '0';
       captionTotal.textContent = '0';
+      const liveCaptions = document.getElementById('live-captions');
+      if (liveCaptions) liveCaptions.innerHTML = '';
+      renderPlayerPanel('captioning-player-panel', currentPlayers, 'captioning');
       showScreen('captioning');
     } else if (gs.state === 'voting') {
       hasVoted = false;
@@ -483,6 +542,7 @@
         currentCaptions = gs.captions;
         renderVoteCaptions(gs.captions);
       }
+      renderPlayerPanel('voting-player-panel', currentPlayers, 'voting');
       showScreen('voting');
     } else if (gs.state === 'results') {
       resultsScoreboard.innerHTML = renderScoreboard(gs.scoreboard);
@@ -501,6 +561,7 @@
   function enterLobby(code, players) {
     landingError.textContent = '';
     lobbyRoomCode.textContent = code;
+    currentPlayers = players;
     renderLobbyPlayers(players);
     updateHostControls(players);
     showScreen('lobby');
@@ -538,12 +599,14 @@
 
   // --- Socket events: Lobby ---
   socket.on('player-joined', (data) => {
+    currentPlayers = data.players;
     renderLobbyPlayers(data.players);
     updateHostControls(data.players);
   });
 
   socket.on('player-left', (data) => {
     if (data.newHostId === myId) isHost = true;
+    currentPlayers = data.players;
     renderLobbyPlayers(data.players);
     updateHostControls(data.players);
   });
@@ -562,6 +625,14 @@
     updateTimer(captionTimer, data.timeRemaining);
     captionCount.textContent = '0';
     captionTotal.textContent = '0';
+
+    // Clear live captions feed
+    const liveCaptions = document.getElementById('live-captions');
+    if (liveCaptions) liveCaptions.innerHTML = '';
+
+    // Init player panel for captioning
+    if (data.players) currentPlayers = data.players;
+    renderPlayerPanel('captioning-player-panel', currentPlayers, 'captioning');
 
     showScreen('captioning');
   });
@@ -604,6 +675,15 @@
   socket.on('caption-submitted', (data) => {
     captionCount.textContent = data.totalSubmitted;
     captionTotal.textContent = data.totalPlayers;
+    // Update player panel
+    if (data.players) {
+      currentPlayers = data.players;
+      renderPlayerPanel('captioning-player-panel', currentPlayers, 'captioning');
+    }
+    // Show live caption from other player
+    if (data.captionText && data.playerId !== myId) {
+      addLiveCaption(data);
+    }
   });
 
   // --- Socket events: Voting ---
@@ -616,6 +696,10 @@
     updateTimer(voteTimer, data.timeRemaining);
     voteCount.textContent = '0';
     voteTotal.textContent = '0';
+
+    // Init player panel for voting
+    if (data.players) currentPlayers = data.players;
+    renderPlayerPanel('voting-player-panel', currentPlayers, 'voting');
 
     renderVoteCaptions(data.captions);
     showScreen('voting');
@@ -666,6 +750,11 @@
   socket.on('vote-submitted', (data) => {
     voteCount.textContent = data.totalVoted;
     voteTotal.textContent = data.totalVoters;
+    // Update player panel
+    if (data.players) {
+      currentPlayers = data.players;
+      renderPlayerPanel('voting-player-panel', currentPlayers, 'voting');
+    }
   });
 
   // --- Socket events: Timer ---
@@ -842,6 +931,7 @@
     hasSubmittedCaption = false;
     hasVoted = false;
     currentCaptions = [];
+    currentPlayers = [];
     inputUsername.value = '';
     inputRoomCode.value = '';
     landingError.textContent = '';

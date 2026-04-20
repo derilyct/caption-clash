@@ -190,11 +190,17 @@ io.on('connection', (socket) => {
     const result = game.submitCaption(socket.id, data.caption);
     if (!result.success) return callback(result);
 
-    // Notify room about submission count
+    const player = game.players.get(socket.id);
+
+    // Notify room about submission count and the caption text
     io.to(code).emit('caption-submitted', {
       totalSubmitted: result.totalSubmitted,
       totalPlayers: result.totalPlayers,
       playerId: socket.id,
+      username: player ? player.username : 'Unknown',
+      avatar: player ? { color: player.avatarColor, emoji: player.avatarEmoji } : null,
+      captionText: game.captions.get(socket.id),
+      players: game.getPlayerList(),
     });
 
     callback({ success: true });
@@ -219,6 +225,8 @@ io.on('connection', (socket) => {
     io.to(code).emit('vote-submitted', {
       totalVoted: result.totalVoted,
       totalVoters: result.totalVoters,
+      voterId: socket.id,
+      players: game.getPlayerList(),
     });
 
     callback({ success: true });
