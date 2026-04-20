@@ -190,16 +190,11 @@ io.on('connection', (socket) => {
     const result = game.submitCaption(socket.id, data.caption);
     if (!result.success) return callback(result);
 
-    const player = game.players.get(socket.id);
-
-    // Notify room about submission count and the caption text
+    // Notify room about submission count
     io.to(code).emit('caption-submitted', {
       totalSubmitted: result.totalSubmitted,
       totalPlayers: result.totalPlayers,
       playerId: socket.id,
-      username: player ? player.username : 'Unknown',
-      avatar: player ? { color: player.avatarColor, emoji: player.avatarEmoji } : null,
-      captionText: game.captions.get(socket.id),
       players: game.getPlayerList(),
     });
 

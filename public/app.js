@@ -403,23 +403,6 @@
     container.innerHTML = html;
   }
 
-  function addLiveCaption(data) {
-    const liveCaptions = document.getElementById('live-captions');
-    if (!liveCaptions) return;
-    // Don't show own caption in the feed
-    if (data.playerId === myId) return;
-    const card = document.createElement('div');
-    card.className = 'live-caption-card';
-    card.innerHTML = `
-      <div class="lc-avatar" style="background:${data.avatar?.color || '#333'}">${data.avatar?.emoji || '?'}</div>
-      <div>
-        <div class="lc-text">"${escapeHtml(data.captionText)}"</div>
-        <div class="lc-author">${escapeHtml(data.username)}</div>
-      </div>
-    `;
-    liveCaptions.appendChild(card);
-  }
-
   // --- Event: Matchmaking ---
   btnMatchmake.addEventListener('click', () => {
     const username = inputUsername.value.trim();
@@ -527,8 +510,6 @@
       updateTimer(captionTimer, gs.timeRemaining);
       captionCount.textContent = '0';
       captionTotal.textContent = '0';
-      const liveCaptions = document.getElementById('live-captions');
-      if (liveCaptions) liveCaptions.innerHTML = '';
       renderPlayerPanel('captioning-player-panel', currentPlayers, 'captioning');
       showScreen('captioning');
     } else if (gs.state === 'voting') {
@@ -618,6 +599,7 @@
     inputCaption.value = '';
     inputCaption.disabled = false;
     btnSubmitCaption.disabled = false;
+    btnSubmitCaption.textContent = 'Submit Caption';
     charCount.textContent = '0';
 
     captionRound.textContent = data.roundNumber;
@@ -625,10 +607,6 @@
     updateTimer(captionTimer, data.timeRemaining);
     captionCount.textContent = '0';
     captionTotal.textContent = '0';
-
-    // Clear live captions feed
-    const liveCaptions = document.getElementById('live-captions');
-    if (liveCaptions) liveCaptions.innerHTML = '';
 
     // Init player panel for captioning
     if (data.players) currentPlayers = data.players;
@@ -661,7 +639,7 @@
       }
       hasSubmittedCaption = true;
       inputCaption.disabled = true;
-      captionSubmittedMsg.style.display = 'flex';
+      btnSubmitCaption.textContent = 'Submitted ✓';
     });
   });
 
@@ -679,10 +657,6 @@
     if (data.players) {
       currentPlayers = data.players;
       renderPlayerPanel('captioning-player-panel', currentPlayers, 'captioning');
-    }
-    // Show live caption from other player
-    if (data.captionText && data.playerId !== myId) {
-      addLiveCaption(data);
     }
   });
 
