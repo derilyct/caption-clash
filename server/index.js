@@ -3,7 +3,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const { createRoom, getRoom, deleteRoom } = require('./game');
+const { createRoom, getRoom, deleteRoom, getJoinableRooms } = require('./game');
 const { router: authRouter, verifyToken } = require('./auth');
 const db = require('./db');
 
@@ -38,6 +38,48 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
+
+  // --- Matchmaking: find a joinable game or create one ---
+  socket.on('matchmake', (data, callback) => {
+    const username = data.username;
+    const userId = socket.userId || null;
+    let totalWins = 0;
+    if (userId) {
+      const dbUser = db.findById(userId);
+      if (dbUser) totalWins = dbUser.wins;
+    }
+
+    const joinable = getJoinableRooms();
+    // Try to join an existing game
+    for (const room of joinable) {
+      const game = getRoom(room.roomCode);
+      if (!game) continue;
+      const result = game.addPlayer(socket.id, username, userId, totalWins);
+      if (result.success) {
+        socket.join(room.roomCode);
+        socketRooms.set(socket.id, room.roomCode);
+
+        socket.to(room.roomCode).emit('player-joined', {
+          player: result.player,
+          players: game.getPlayerList(),
+        });
+
+        const response = {
+          success: true,
+          roomCode: room.roomCode,
+          player: result.player,
+          players: game.getPlayerList(),
+          joinedMidGame: result.joinedMidGame,
+        };
+        if (result.joinedMidGame) {
+          response.gameState = game.getGameState();
+        }
+        return callback(response);
+      }
+    }
+    // No joinable games found
+    return callback({ success: false, error: 'No games available' });
+  });
 
   // --- Create a new game room ---
   socket.on('create-room', (data, callback) => {
@@ -94,12 +136,17 @@ io.on('connection', (socket) => {
       players: game.getPlayerList(),
     });
 
-    callback({
+    const response = {
       success: true,
       roomCode: code,
       player: result.player,
       players: game.getPlayerList(),
-    });
+      joinedMidGame: result.joinedMidGame,
+    };
+    if (result.joinedMidGame) {
+      response.gameState = game.getGameState();
+    }
+    callback(response);
   });
 
   // --- Start the game (host only) ---
@@ -282,6 +329,40 @@ function transitionToResults(code) {
   }
 
   io.to(code).emit('round-results', results);
+
+  // Auto-advance to next round after 30 seconds (unless game over)
+  if (results.state !== 'gameover') {
+    game.startTimer(30,
+      (timeRemaining) => {
+        io.to(code).emit('timer-tick', { timeRemaining, phase: 'results' });
+      },
+      () => {
+        autoAdvanceRound(code);
+      }
+    );
+  }
+}
+
+async function autoAdvanceRound(code) {
+  const game = getRoom(code);
+  if (!game) return;
+  if (game.state !== 'results') return;
+
+  try {
+    const roundData = await game.startRound(
+      (timeRemaining) => {
+        io.to(code).emit('timer-tick', { timeRemaining, phase: game.state });
+      },
+      (phase) => {
+        if (phase === 'captioning') {
+          transitionToVoting(code);
+        }
+      }
+    );
+    io.to(code).emit('round-start', roundData);
+  } catch (err) {
+    console.error('Error auto-advancing round:', err);
+  }
 }
 
 function handleDisconnect(socket) {

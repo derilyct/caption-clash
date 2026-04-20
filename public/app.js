@@ -38,6 +38,8 @@
   const inputRoomCode = $('#input-room-code');
   const btnCreate = $('#btn-create');
   const btnJoin = $('#btn-join');
+  const btnMatchmake = $('#btn-matchmake');
+  const matchmakeStatus = $('#matchmake-status');
   const landingError = $('#landing-error');
 
   // Lobby
@@ -72,6 +74,7 @@
   const resultsScoreboard = $('#results-scoreboard');
   const btnNextRound = $('#btn-next-round');
   const resultsWaiting = $('#results-waiting');
+  const resultsTimer = $('#results-timer');
 
   // Game Over
   const gameoverWinner = $('#gameover-winner');
@@ -362,6 +365,36 @@
     return div.innerHTML;
   }
 
+  // --- Event: Matchmaking ---
+  btnMatchmake.addEventListener('click', () => {
+    const username = inputUsername.value.trim();
+    if (!username) {
+      landingError.textContent = 'Please enter a nickname';
+      return;
+    }
+    btnMatchmake.disabled = true;
+    matchmakeStatus.style.display = 'block';
+    matchmakeStatus.textContent = 'Searching for a game...';
+    landingError.textContent = '';
+    socket.emit('matchmake', { username }, (res) => {
+      btnMatchmake.disabled = false;
+      matchmakeStatus.style.display = 'none';
+      if (!res.success) {
+        landingError.textContent = 'No games found. Click "Start New Game" to create one!';
+        return;
+      }
+      myId = socket.id;
+      myPlayer = res.player;
+      roomCode = res.roomCode;
+      isHost = false;
+      if (res.joinedMidGame && res.gameState) {
+        handleMidGameJoin(res);
+      } else {
+        enterLobby(res.roomCode, res.players);
+      }
+    });
+  });
+
   // --- Event: Create room ---
   btnCreate.addEventListener('click', () => {
     const username = inputUsername.value.trim();
@@ -407,17 +440,62 @@
       myPlayer = res.player;
       roomCode = res.roomCode;
       isHost = false;
-      enterLobby(res.roomCode, res.players);
+      if (res.joinedMidGame && res.gameState) {
+        handleMidGameJoin(res);
+      } else {
+        enterLobby(res.roomCode, res.players);
+      }
     });
   });
 
   // Allow Enter key on inputs
   inputUsername.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') btnCreate.click();
+    if (e.key === 'Enter') btnMatchmake.click();
   });
   inputRoomCode.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') btnJoin.click();
   });
+
+  // --- Mid-game join handler ---
+  function handleMidGameJoin(res) {
+    const gs = res.gameState;
+    if (gs.state === 'captioning') {
+      hasSubmittedCaption = false;
+      captionSubmittedMsg.style.display = 'none';
+      inputCaption.value = '';
+      inputCaption.disabled = false;
+      btnSubmitCaption.disabled = false;
+      charCount.textContent = '0';
+      captionRound.textContent = gs.roundNumber;
+      captionImage.src = gs.image.url;
+      updateTimer(captionTimer, gs.timeRemaining);
+      captionCount.textContent = '0';
+      captionTotal.textContent = '0';
+      showScreen('captioning');
+    } else if (gs.state === 'voting') {
+      hasVoted = false;
+      voteSubmittedMsg.style.display = 'none';
+      voteImage.src = gs.image.url;
+      updateTimer(voteTimer, gs.timeRemaining);
+      voteCount.textContent = '0';
+      voteTotal.textContent = '0';
+      if (gs.captions) {
+        currentCaptions = gs.captions;
+        renderVoteCaptions(gs.captions);
+      }
+      showScreen('voting');
+    } else if (gs.state === 'results') {
+      resultsScoreboard.innerHTML = renderScoreboard(gs.scoreboard);
+      resultsWinner.style.display = 'none';
+      resultsCaptions.innerHTML = '';
+      if (gs.image) resultsImage.src = gs.image.url;
+      btnNextRound.style.display = 'none';
+      resultsWaiting.style.display = 'none';
+      showScreen('results');
+    } else {
+      enterLobby(res.roomCode, res.players);
+    }
+  }
 
   // --- Lobby ---
   function enterLobby(code, players) {
@@ -596,6 +674,8 @@
       updateTimer(captionTimer, data.timeRemaining);
     } else if (data.phase === 'voting') {
       updateTimer(voteTimer, data.timeRemaining);
+    } else if (data.phase === 'results') {
+      if (resultsTimer) resultsTimer.textContent = data.timeRemaining;
     }
   });
 
@@ -651,15 +731,16 @@
       }
       showGameOver(data.gameWinner, data.scoreboard);
     } else {
-      // Show next round controls
+      // Show auto-advance countdown and optional skip button for host
+      if (resultsTimer) resultsTimer.textContent = '30';
       if (isHost) {
         btnNextRound.style.display = 'inline-block';
         btnNextRound.disabled = false;
-        resultsWaiting.style.display = 'none';
+        btnNextRound.textContent = 'Next Round Now';
       } else {
         btnNextRound.style.display = 'none';
-        resultsWaiting.style.display = 'block';
       }
+      resultsWaiting.style.display = 'none';
       showScreen('results');
     }
   });
@@ -689,11 +770,11 @@
     if (isHost) {
       btnNextRound.style.display = 'inline-block';
       btnNextRound.disabled = false;
-      resultsWaiting.style.display = 'none';
+      btnNextRound.textContent = 'Next Round Now';
     } else {
       btnNextRound.style.display = 'none';
-      resultsWaiting.style.display = 'block';
     }
+    resultsWaiting.style.display = 'none';
     showScreen('results');
   });
 

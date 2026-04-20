@@ -44,9 +44,14 @@
             autocomplete="off"
           />
 
-          <button id="btn-create" class="btn btn-primary">Create Game</button>
+          <button id="btn-matchmake" class="btn btn-accent">Find Game</button>
+          <p id="matchmake-status" class="subtle-text" style="display:none"></p>
 
           <div class="divider"><span>or</span></div>
+
+          <button id="btn-create" class="btn btn-primary">Start New Game</button>
+
+          <div class="divider"><span>or join by code</span></div>
 
           <div class="join-row">
             <input
@@ -160,8 +165,11 @@
         <div id="results-scoreboard" class="scoreboard"></div>
 
         <div class="results-actions">
+          <div class="results-auto-advance">
+            <p class="subtle-text">Next round in <span id="results-timer" class="results-countdown">30</span>s</p>
+          </div>
           <button id="btn-next-round" class="btn btn-primary" style="display:none">
-            Next Round
+            Next Round Now
           </button>
           <p id="results-waiting" class="subtle-text" style="display:none">
             Waiting for host...

@@ -10,7 +10,7 @@ const { getRandomImage, resetImagePool } = require('./imageGenerator');
 
 const CAPTION_TIME = 60;       // seconds
 const VOTE_TIME = 120;         // seconds
-const RESULTS_TIME = 10;       // seconds
+const RESULTS_TIME = 30;       // seconds for auto-advance
 const MAX_PLAYERS = 6;
 const CAPTION_CHAR_LIMIT = 100;
 const WINS_TO_END = 6;
@@ -49,8 +49,8 @@ class Game {
     if (this.players.size >= MAX_PLAYERS) {
       return { success: false, error: 'Game is full (max 6 players)' };
     }
-    if (this.state !== 'lobby') {
-      return { success: false, error: 'Game already in progress' };
+    if (this.state === 'gameover') {
+      return { success: false, error: 'Game is over' };
     }
 
     const sanitizedName = cleanText(username.trim()).substring(0, 20);
@@ -95,7 +95,7 @@ class Game {
       this.hostId = socketId;
     }
 
-    return { success: true, player };
+    return { success: true, player, joinedMidGame: this.state !== 'lobby' };
   }
 
   /**
@@ -400,6 +400,28 @@ class Game {
   }
 
   /**
+   * Get current game state snapshot for late joiners.
+   */
+  getGameState() {
+    const base = {
+      state: this.state,
+      roundNumber: this.roundNumber,
+      timeRemaining: this.timeRemaining,
+      image: this.currentImage,
+      scoreboard: this.getScoreboard(),
+      players: this.getPlayerList(),
+    };
+    if (this.state === 'voting') {
+      const captionList = [];
+      for (const [playerId, text] of this.captions) {
+        captionList.push({ id: playerId, text });
+      }
+      base.captions = captionList;
+    }
+    return base;
+  }
+
+  /**
    * Check if all captions have been submitted.
    */
   allCaptionsSubmitted() {
@@ -456,4 +478,19 @@ function generateRoomCode() {
   return code;
 }
 
-module.exports = { Game, createRoom, getRoom, deleteRoom };
+function getJoinableRooms() {
+  const joinable = [];
+  for (const [code, game] of rooms) {
+    if (game.players.size < MAX_PLAYERS && game.state !== 'gameover') {
+      joinable.push({
+        roomCode: code,
+        playerCount: game.players.size,
+        state: game.state,
+        roundNumber: game.roundNumber,
+      });
+    }
+  }
+  return joinable;
+}
+
+module.exports = { Game, createRoom, getRoom, deleteRoom, getJoinableRooms };
