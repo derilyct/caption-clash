@@ -45,7 +45,7 @@ class Game {
    * Add a player to the game.
    * @returns {{ success: boolean, error?: string, player?: object }}
    */
-  addPlayer(socketId, username) {
+  addPlayer(socketId, username, userId = null, totalWins = 0) {
     if (this.players.size >= MAX_PLAYERS) {
       return { success: false, error: 'Game is full (max 6 players)' };
     }
@@ -77,10 +77,12 @@ class Game {
 
     const player = {
       id: socketId,
+      userId,
       username: sanitizedName,
       score: 0,
       captionsWon: 0,
       gamesWon: 0,
+      totalWins,
       avatarColor: AVATAR_COLORS[avatarIndex],
       avatarEmoji: AVATAR_EMOJIS[avatarIndex],
       avatarIndex,
@@ -330,6 +332,7 @@ class Game {
         score: player.score,
         captionsWon: player.captionsWon,
         gamesWon: player.gamesWon,
+        totalWins: player.totalWins,
         avatar: { color: player.avatarColor, emoji: player.avatarEmoji },
         isHost: player.id === this.hostId,
       });
@@ -367,6 +370,7 @@ class Game {
         avatar: { color: player.avatarColor, emoji: player.avatarEmoji },
         gamesWon: player.gamesWon,
         captionsWon: player.captionsWon,
+        totalWins: player.totalWins,
         isHost: player.id === this.hostId,
       });
     }

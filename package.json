@@ -13,6 +13,8 @@
     "bad-words": "^3.0.4",
     "openai": "^4.28.0",
     "dotenv": "^16.4.1",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
   }
 }

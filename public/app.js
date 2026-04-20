@@ -4,7 +4,11 @@
 (function () {
   'use strict';
 
-  const socket = io();
+  // --- Auth state ---
+  let authToken = localStorage.getItem('authToken');
+  let authUser = null;
+
+  const socket = io({ auth: { token: authToken } });
 
   // --- State ---
   let myId = null;
@@ -75,6 +79,26 @@
   const btnPlayAgain = $('#btn-play-again');
   const btnNewGame = $('#btn-new-game');
 
+  // Auth
+  const authStatus = $('#auth-status');
+  const authButtons = $('#auth-buttons');
+  const authUsernameEl = $('#auth-username');
+  const authWinsEl = $('#auth-wins');
+  const btnLogout = $('#btn-logout');
+  const btnShowLogin = $('#btn-show-login');
+  const btnShowRegister = $('#btn-show-register');
+  const authModal = $('#auth-modal');
+  const btnCloseModal = $('#btn-close-modal');
+  const authLoginUsername = $('#auth-login-username');
+  const authLoginPassword = $('#auth-login-password');
+  const btnLogin = $('#btn-login');
+  const loginError = $('#login-error');
+  const authRegisterUsername = $('#auth-register-username');
+  const authRegisterPassword = $('#auth-register-password');
+  const btnRegister = $('#btn-register');
+  const registerError = $('#register-error');
+  const socialButtonsContainer = $('#social-buttons');
+
   // --- Screen management ---
   function showScreen(name) {
     Object.values(screens).forEach((s) => s.classList.remove('active'));
@@ -82,8 +106,218 @@
     btnLeaveGame.style.display = name === 'landing' ? 'none' : 'block';
   }
 
+  // --- Auth UI ---
+  function updateAuthUI() {
+    if (authUser) {
+      authStatus.style.display = 'flex';
+      authButtons.style.display = 'none';
+      authUsernameEl.textContent = authUser.username;
+      authWinsEl.textContent = `${authUser.wins} win${authUser.wins !== 1 ? 's' : ''}`;
+      if (!inputUsername.value) inputUsername.value = authUser.username;
+    } else {
+      authStatus.style.display = 'none';
+      authButtons.style.display = 'block';
+    }
+  }
+
+  async function checkAuth() {
+    if (!authToken) {
+      updateAuthUI();
+      return;
+    }
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        authUser = data.user;
+      } else {
+        authToken = null;
+        authUser = null;
+        localStorage.removeItem('authToken');
+      }
+    } catch (e) {
+      authToken = null;
+      authUser = null;
+      localStorage.removeItem('authToken');
+    }
+    updateAuthUI();
+  }
+
+  function setAuthToken(token, user) {
+    authToken = token;
+    authUser = user;
+    localStorage.setItem('authToken', token);
+    socket.auth = { token };
+    socket.disconnect().connect();
+    updateAuthUI();
+  }
+
+  function handleAuthRedirect() {
+    const hash = window.location.hash;
+    if (hash.startsWith('#auth-token=')) {
+      const token = hash.substring('#auth-token='.length);
+      localStorage.setItem('authToken', token);
+      authToken = token;
+      window.history.replaceState(null, '', window.location.pathname);
+      socket.auth = { token };
+      socket.disconnect().connect();
+      checkAuth();
+    } else if (hash.startsWith('#auth-error=')) {
+      window.history.replaceState(null, '', window.location.pathname);
+      landingError.textContent = 'Social login failed. Please try again.';
+    }
+  }
+
+  async function loadSocialProviders() {
+    try {
+      const res = await fetch('/api/auth/providers');
+      const providers = await res.json();
+      const btnGoogle = $('#btn-google');
+      const btnFacebook = $('#btn-facebook');
+      const btnApple = $('#btn-apple');
+
+      [['google', btnGoogle], ['facebook', btnFacebook], ['apple', btnApple]].forEach(([name, btn]) => {
+        if (!btn) return;
+        if (!providers[name]) {
+          btn.classList.add('btn-social-disabled');
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            alert(`${name.charAt(0).toUpperCase() + name.slice(1)} login is not configured yet. Ask the admin to set up the ${name} credentials.`);
+          });
+        }
+      });
+    } catch (e) {
+      // Keep social buttons visible but disable them
+      socialButtonsContainer.querySelectorAll('.btn-social').forEach((btn) => {
+        btn.classList.add('btn-social-disabled');
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          alert('Social login is currently unavailable.');
+        });
+      });
+    }
+  }
+
+  // --- Auth modal ---
+  function openAuthModal(tab) {
+    authModal.style.display = 'flex';
+    switchModalTab(tab || 'login');
+    loginError.textContent = '';
+    registerError.textContent = '';
+  }
+
+  function closeAuthModal() {
+    authModal.style.display = 'none';
+  }
+
+  function switchModalTab(tab) {
+    authModal.querySelectorAll('.modal-tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    $('#tab-login').style.display = tab === 'login' ? 'flex' : 'none';
+    $('#tab-register').style.display = tab === 'register' ? 'flex' : 'none';
+  }
+
+  btnShowLogin.addEventListener('click', () => openAuthModal('login'));
+  btnShowRegister.addEventListener('click', () => openAuthModal('register'));
+  btnCloseModal.addEventListener('click', closeAuthModal);
+  authModal.addEventListener('click', (e) => {
+    if (e.target === authModal) closeAuthModal();
+  });
+  authModal.querySelectorAll('.modal-tab').forEach((tab) => {
+    tab.addEventListener('click', () => switchModalTab(tab.dataset.tab));
+  });
+
+  btnLogin.addEventListener('click', async () => {
+    const username = authLoginUsername.value.trim();
+    const password = authLoginPassword.value;
+    if (!username || !password) {
+      loginError.textContent = 'Enter username and password';
+      return;
+    }
+    btnLogin.disabled = true;
+    loginError.textContent = '';
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setAuthToken(data.token, data.user);
+      closeAuthModal();
+    } catch (err) {
+      loginError.textContent = err.message;
+    } finally {
+      btnLogin.disabled = false;
+    }
+  });
+
+  btnRegister.addEventListener('click', async () => {
+    const username = authRegisterUsername.value.trim();
+    const password = authRegisterPassword.value;
+    if (!username) {
+      registerError.textContent = 'Enter a username';
+      return;
+    }
+    if (username.length > 17) {
+      registerError.textContent = 'Username must be 17 characters or fewer';
+      return;
+    }
+    if (!password) {
+      registerError.textContent = 'Enter a password';
+      return;
+    }
+    btnRegister.disabled = true;
+    registerError.textContent = '';
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setAuthToken(data.token, data.user);
+      closeAuthModal();
+    } catch (err) {
+      registerError.textContent = err.message;
+    } finally {
+      btnRegister.disabled = false;
+    }
+  });
+
+  // Enter key support in auth forms
+  authLoginPassword.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') btnLogin.click();
+  });
+  authRegisterPassword.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') btnRegister.click();
+  });
+
+  btnLogout.addEventListener('click', () => {
+    authToken = null;
+    authUser = null;
+    localStorage.removeItem('authToken');
+    socket.auth = { token: null };
+    socket.disconnect().connect();
+    inputUsername.value = '';
+    updateAuthUI();
+  });
+
+  // Init auth
+  handleAuthRedirect();
+  checkAuth();
+  loadSocialProviders();
+
   // --- Utilities ---
   function renderPlayerCard(player) {
+    const winsDisplay = player.totalWins > 0
+      ? `${player.totalWins} total win${player.totalWins !== 1 ? 's' : ''}`
+      : `${player.gamesWon} game${player.gamesWon !== 1 ? 's' : ''} won`;
     return `
       <div class="player-card ${player.isHost ? 'is-host' : ''}">
         ${player.isHost ? '<span class="host-badge">Host</span>' : ''}
@@ -92,7 +326,7 @@
         </div>
         <div class="player-name">${escapeHtml(player.username)}</div>
         <div class="player-stats">
-          ${player.gamesWon} game${player.gamesWon !== 1 ? 's' : ''} won
+          ${winsDisplay}
           &middot; ${player.captionsWon} caption${player.captionsWon !== 1 ? 's' : ''}
         </div>
       </div>
@@ -410,6 +644,11 @@
 
     // Game over or next round?
     if (data.state === 'gameover') {
+      // Update local auth wins if this player won
+      if (data.gameWinner && data.gameWinner.id === myId && authUser) {
+        authUser.wins++;
+        updateAuthUI();
+      }
       showGameOver(data.gameWinner, data.scoreboard);
     } else {
       // Show next round controls

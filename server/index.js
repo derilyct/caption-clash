@@ -4,6 +4,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const { createRoom, getRoom, deleteRoom } = require('./game');
+const { router: authRouter, verifyToken } = require('./auth');
+const db = require('./db');
 
 const app = express();
 const server = http.createServer(app);
@@ -15,10 +17,24 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 
 // Serve static files
+app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use('/api/auth', authRouter);
 
 // Track which room each socket is in
 const socketRooms = new Map(); // socketId -> roomCode
+
+// Authenticate sockets via JWT
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (token) {
+    const decoded = verifyToken(token);
+    if (decoded) {
+      socket.userId = decoded.userId;
+    }
+  }
+  next();
+});
 
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
@@ -26,7 +42,13 @@ io.on('connection', (socket) => {
   // --- Create a new game room ---
   socket.on('create-room', (data, callback) => {
     const game = createRoom();
-    const result = game.addPlayer(socket.id, data.username);
+    const userId = socket.userId || null;
+    let totalWins = 0;
+    if (userId) {
+      const dbUser = db.findById(userId);
+      if (dbUser) totalWins = dbUser.wins;
+    }
+    const result = game.addPlayer(socket.id, data.username, userId, totalWins);
     if (!result.success) {
       deleteRoom(game.roomCode);
       return callback({ success: false, error: result.error });
@@ -52,7 +74,13 @@ io.on('connection', (socket) => {
       return callback({ success: false, error: 'Room not found' });
     }
 
-    const result = game.addPlayer(socket.id, data.username);
+    const result = game.addPlayer(socket.id, data.username, socket.userId || null, (() => {
+      if (socket.userId) {
+        const u = db.findById(socket.userId);
+        return u ? u.wins : 0;
+      }
+      return 0;
+    })());
     if (!result.success) {
       return callback({ success: false, error: result.error });
     }
@@ -243,6 +271,16 @@ function transitionToResults(code) {
   if (!game) return;
 
   const results = game.getResults();
+
+  // Persist win to database for logged-in winner
+  if (results.gameWinner) {
+    const winnerPlayer = game.players.get(results.gameWinner.id);
+    if (winnerPlayer && winnerPlayer.userId) {
+      db.incrementWins(winnerPlayer.userId);
+      winnerPlayer.totalWins++;
+    }
+  }
+
   io.to(code).emit('round-results', results);
 }
 
